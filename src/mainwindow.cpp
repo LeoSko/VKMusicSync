@@ -1,5 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "numericalconstants.h"
+#include "stringconstants.h"
 #include <vreen/connection.h>
 #include <vreen/auth/oauthconnection.h>
 #include <vreen/roster.h>
@@ -11,16 +13,20 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     m_ui(new Ui::MainWindow),
     m_client(new Vreen::Client(this)),
-    m_auth(new Vreen::OAuthConnection(4378706, this)),
-    m_settings(new QSettings("bAnanapOtato"))
+    m_auth(new Vreen::OAuthConnection(APPLICATION_VK_ID, this)),
+    m_settings(new QSettings(ORG_NAME)),
+    m_audioList(new QList<Audio>())
 {
     m_ui->setupUi(this);
+    this->setWindowTitle(APP_NAME + " " + APP_VERSION);
     m_auth->setConnectionOption(Vreen::Connection::ShowAuthDialog, true);
     m_auth->setConnectionOption(Vreen::Connection::KeepAuthData, true);
     m_client->setConnection(m_auth);
 
     connect(m_client, &Vreen::Client::onlineStateChanged, this, &MainWindow::onOnlineChanged);
     connect(m_client->roster(), &Vreen::Roster::syncFinished, this, &MainWindow::onSynced);
+    connect(m_ui->refreshButton, &QPushButton::clicked, this, &MainWindow::refreshAudioList);
+    connect(m_ui->syncButton, &QPushButton::clicked, this, &MainWindow::syncAudio);
     //connect(m_auth, &Vreen::OAuthConnection::accessTokenChanged, this, &MainWindow::saveToken);
 
     connect(m_ui->loginButton, &QPushButton::clicked, this, &MainWindow::login);
@@ -39,11 +45,12 @@ MainWindow::MainWindow(QWidget *parent) :
         }
     }
     m_settings->endGroup();*/
-
+    m_ui->audioList->reset();
 }
 
 MainWindow::~MainWindow()
 {
+    delete m_audioList;
     delete m_client;
     delete m_ui;
 }
@@ -55,25 +62,54 @@ void MainWindow::login(bool currentState)
 
 void MainWindow::onOnlineChanged(bool online)
 {
-    m_ui->onlineStateLbl->setText((online)?"Online":"Offline");
+    m_ui->onlineStateLbl->setText((online)?STATUS_BAR_ONLINE_STATE:STATUS_BAR_OFFLINE_STATE);
     if (online)
     {
         // Do some actions as we logged in and use onSynced to process answer
-
+        m_ui->refreshButton->setEnabled(true);
+        m_ui->refreshButton->click();
     }
 }
 
-void MainWindow::onSynced(bool success)
+void MainWindow::onSynced(const QVariant &vars)
 {
-    if (success)
-    {
-        // Process answer from server
 
-    }
-    else
+}
+
+void MainWindow::onRefreshed(const QVariant &vars)
+{
+    // Here we need to convert given answer to our list of audio
+    // so that we could easily operate with them
+    QVariantList answer = vars.toList();
+    m_ui->statusBar->showMessage(STATUS_BAR_PROCESSING_ANSWER, SHORT_STATUS_BAR_MESSAGE);
+    // Process answer from server
+    for (QVariant v : answer)
     {
-        qDebug() << "Failed to sync";
+        QVariantMap vm = v.toMap();
+        Audio a(vm[AUDIO_FIELD_ID].toInt(), vm[AUDIO_FIELD_ARTIST].toString(), vm[AUDIO_FIELD_TITLE].toString(),
+                vm[AUDIO_FIELD_URL].toString(), vm[AUDIO_FIELD_DURATION].toInt(), vm[AUDIO_FIELD_GENRE].toInt());
+        m_audioList->append(a);
+        m_ui->audioList->addItem(AUDIO_LIST_SHOW_PATTERN.arg(a.artist, a.title,
+                                                             QString::number(a.duration/60), QString::number(a.duration%60)));
     }
+    m_ui->statusBar->showMessage(STATUS_BAR_REFRESHED_AUDIO_LIST, SHORT_STATUS_BAR_MESSAGE);
+    m_ui->syncButton->setEnabled(true);
+}
+
+void MainWindow::refreshAudioList()
+{
+    m_audioList->clear();
+    m_ui->audioList->clear();
+    QVariantMap args;
+    args.insert(AUDIO_GET_FIELD_COUND, MAX_AUDIO_GET_COUNT);
+    m_ui->statusBar->showMessage(STATUS_BAR_REFRESHING_AUDIO_LIST, SHORT_STATUS_BAR_MESSAGE);
+    auto reply = m_client->request(AUDIO_GET_METHOD, args);
+    connect(reply, &Vreen::Reply::resultReady, this, &MainWindow::onRefreshed);
+}
+
+void MainWindow::syncAudio()
+{
+
 }
 
 /*void MainWindow::saveToken(const QByteArray &token, time_t expires)

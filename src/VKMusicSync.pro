@@ -9,7 +9,9 @@ TEMPLATE = app
 SOURCES += main.cpp\
         mainwindow.cpp
 
-HEADERS  += mainwindow.h
+HEADERS  += mainwindow.h \
+    stringconstants.h \
+    numericalconstants.h
 
 FORMS    += mainwindow.ui
 
