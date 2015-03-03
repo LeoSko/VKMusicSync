@@ -39,13 +39,16 @@ private:
     Vreen::Client *m_client;
     QSettings *m_settings;
     QList<Audio> *m_audioList;
+    QMap<QString, int> *m_albums;
 
 public slots:
     void login(bool currentState);
     void onOnlineChanged(bool online);
     void onSynced(const QVariant &vars);
     void onRefreshed(const QVariant &vars);
+    void onAlbumsListReceived(const QVariant &vars);
     void refreshAudioList();
+    void refreshAlbumList();
     //void saveToken(const QByteArray &token, time_t expires);
     void syncAudio();
 };

@@ -33,7 +33,7 @@
          <bool>false</bool>
         </property>
         <property name="text">
-         <string>Refresh</string>
+         <string>Reload list</string>
         </property>
        </widget>
       </item>
@@ -54,6 +54,24 @@
         </property>
         <property name="maximum">
          <number>6000</number>
+        </property>
+        <property name="value">
+         <number>30</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="albumsComboBox"/>
+      </item>
+      <item>
+       <widget class="QPushButton" name="refreshAlbumsButton">
+        <property name="text">
+         <string>Refresh albums</string>
+        </property>
+        <property name="icon">
+         <iconset theme="view-refresh">
+          <normaloff/>
+         </iconset>
         </property>
        </widget>
       </item>
