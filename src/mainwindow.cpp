@@ -18,6 +18,7 @@ MainWindow::MainWindow(QWidget *parent) :
     m_audioList(new QList<Audio>())
 {
     m_ui->setupUi(this);
+    m_ui->countOfTracksSpinBox->setMaximum(MAX_AUDIO_GET_COUNT);
     this->setWindowTitle(APP_NAME + " " + APP_VERSION);
     m_auth->setConnectionOption(Vreen::Connection::ShowAuthDialog, true);
     m_auth->setConnectionOption(Vreen::Connection::KeepAuthData, true);
@@ -101,7 +102,7 @@ void MainWindow::refreshAudioList()
     m_audioList->clear();
     m_ui->audioList->clear();
     QVariantMap args;
-    args.insert(AUDIO_GET_FIELD_COUND, MAX_AUDIO_GET_COUNT);
+    args.insert(AUDIO_GET_FIELD_COUND, m_ui->countOfTracksSpinBox->value());
     m_ui->statusBar->showMessage(STATUS_BAR_REFRESHING_AUDIO_LIST, SHORT_STATUS_BAR_MESSAGE);
     auto reply = m_client->request(AUDIO_GET_METHOD, args);
     connect(reply, &Vreen::Reply::resultReady, this, &MainWindow::onRefreshed);

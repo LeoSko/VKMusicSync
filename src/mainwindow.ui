@@ -38,6 +38,26 @@
        </widget>
       </item>
       <item>
+       <widget class="QLabel" name="countOfTrackslbl">
+        <property name="text">
+         <string>Count of tracks</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSpinBox" name="countOfTracksSpinBox">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The amount of tracks to be synced can be from 1 to 6000. If you set too large number, all possible tracks will be synced.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="minimum">
+         <number>1</number>
+        </property>
+        <property name="maximum">
+         <number>6000</number>
+        </property>
+       </widget>
+      </item>
+      <item>
        <spacer name="horizontalSpacer">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
