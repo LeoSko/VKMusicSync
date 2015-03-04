@@ -42,7 +42,6 @@ private:
     QMap<QString, int> *m_albums;
 
 public slots:
-    void login(bool currentState);
     void onOnlineChanged(bool online);
     void onSynced(const QVariant &vars);
     void onRefreshed(const QVariant &vars);
@@ -51,6 +50,10 @@ public slots:
     void refreshAlbumList();
     //void saveToken(const QByteArray &token, time_t expires);
     void syncAudio();
+    void logout();
+    void login();
+private slots:
+    void on_albumsComboBox_currentTextChanged(const QString &arg1);
 };
 
 #endif // MAINWINDOW_H

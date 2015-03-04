@@ -31,24 +31,9 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(m_ui->refreshButton, &QPushButton::clicked, this, &MainWindow::refreshAudioList);
     connect(m_ui->syncButton, &QPushButton::clicked, this, &MainWindow::syncAudio);
     connect(m_ui->refreshAlbumsButton, &QPushButton::clicked, this, &MainWindow::refreshAlbumList);
-    //connect(m_auth, &Vreen::OAuthConnection::accessTokenChanged, this, &MainWindow::saveToken);
 
     connect(m_ui->loginButton, &QPushButton::clicked, this, &MainWindow::login);
 
-    /* Trying to save access_token, although it should be saved automatically from
-     * m_auth->setConnectionOption(Vreen::Connection::KeepAuthData, true);
-     * line
-    m_settings->beginGroup("auth");
-    if (m_settings->value("has_token").toBool())
-    {
-        if (!m_settings->value("access_token").toByteArray().isEmpty())
-        {
-            qDebug() << "we have token saved: " << m_settings->value("access_token").toByteArray();
-            m_auth->setAccessToken(m_settings->value("access_token").toByteArray());
-            qDebug() << m_auth->connectionState();
-        }
-    }
-    m_settings->endGroup();*/
     m_ui->audioList->reset();
 }
 
@@ -62,21 +47,45 @@ MainWindow::~MainWindow()
     delete m_ui;
 }
 
-void MainWindow::login(bool currentState)
+void MainWindow::login()
 {
     m_client->connectToHost();
 }
 
+void MainWindow::logout()
+{
+    m_client->disconnectFromHost();
+    if (!m_ui->rememberMeCheckBox->isChecked())
+    {
+        m_auth->clear();
+    }
+}
+
 void MainWindow::onOnlineChanged(bool online)
 {
-    m_ui->onlineStateLbl->setText((online)?STATUS_BAR_ONLINE_STATE:STATUS_BAR_OFFLINE_STATE);
+    m_ui->onlineStateLbl->setText((online)?ONLINE_STATE_LBL_ONLINE:ONLINE_STATE_LBL_OFFLINE);
+    m_ui->refreshButton->setEnabled(online);
+    m_ui->countOfTrackslbl->setEnabled(online);
+    m_ui->refreshAlbumsButton->setEnabled(online);
+    m_ui->albumsComboBox->setEnabled(online);
+    m_ui->audioList->setEnabled(online);
+    m_ui->countOfTracksSpinBox->setEnabled(online);
+    m_ui->loginButton->setText((online)?LOGOUT_BUTTON:LOGIN_BUTTON);
     if (online)
     {
         // Do some actions as we logged in and use onSynced to process answer
-        m_ui->refreshButton->setEnabled(true);
         m_ui->refreshButton->click();
         m_ui->refreshAlbumsButton->click();
+        disconnect(m_ui->loginButton, &QPushButton::clicked, this, &MainWindow::login);
+        connect(m_ui->loginButton, &QPushButton::clicked, this, &MainWindow::logout);
     }
+    else
+    {
+        disconnect(m_ui->loginButton, &QPushButton::clicked, this, &MainWindow::logout);
+        connect(m_ui->loginButton, &QPushButton::clicked, this, &MainWindow::login);
+    }
+    m_ui->statusBar->showMessage(online?STATUS_BAR_GONE_ONLINE:STATUS_BAR_GONE_OFFLINE,
+                                 LONG_STATUS_BAR_MESSAGE);
 }
 
 void MainWindow::onSynced(const QVariant &vars)
@@ -98,9 +107,10 @@ void MainWindow::onRefreshed(const QVariant &vars)
                 vm[AUDIO_FIELD_URL].toString(), vm[AUDIO_FIELD_DURATION].toInt(), vm[AUDIO_FIELD_GENRE].toInt());
         m_audioList->append(a);
         m_ui->audioList->addItem(AUDIO_LIST_SHOW_PATTERN.arg(a.artist, a.title,
-                                                             QString::number(a.duration/60), QString::number(a.duration%60)));
+                                                             QString::number(a.duration/60),
+                                                             QString::number(a.duration%60)));
     }
-    m_ui->statusBar->showMessage(STATUS_BAR_REFRESHED_AUDIO_LIST, SHORT_STATUS_BAR_MESSAGE);
+    m_ui->statusBar->showMessage(STATUS_BAR_REFRESHED_AUDIO_LIST, LONG_STATUS_BAR_MESSAGE);
     m_ui->syncButton->setEnabled(true);
 }
 
@@ -126,6 +136,12 @@ void MainWindow::onAlbumsListReceived(const QVariant &vars)
     {
         m_ui->albumsComboBox->addItem(key);
     }
+    m_ui->albumsComboBox->insertSeparator(m_albums->size());
+    for (QString key : POPULAR_GENRES.keys())
+    {
+        m_ui->albumsComboBox->addItem(key);
+        m_albums->insert(key, -POPULAR_GENRES[key]);
+    }
 }
 
 void MainWindow::refreshAudioList()
@@ -134,10 +150,21 @@ void MainWindow::refreshAudioList()
     m_ui->audioList->clear();
     m_ui->statusBar->showMessage(STATUS_BAR_REFRESHING_AUDIO_LIST, SHORT_STATUS_BAR_MESSAGE);
     QVariantMap args;
-    args.insert(AUDIO_GET_FIELD_COUNT, m_ui->countOfTracksSpinBox->value());
-    args.insert(AUDIO_GET_FIELD_ALBUM, m_albums->value(m_ui->albumsComboBox->currentText()));
-    auto reply = m_client->request(AUDIO_GET_METHOD, args);
-    connect(reply, &Vreen::Reply::resultReady, this, &MainWindow::onRefreshed);
+    if (m_albums->value(m_ui->albumsComboBox->currentText()) >= 0)
+    {
+        args.insert(AUDIO_GET_FIELD_COUNT, m_ui->countOfTracksSpinBox->value());
+        args.insert(AUDIO_GET_FIELD_ALBUM, m_albums->value(m_ui->albumsComboBox->currentText()));
+        auto reply = m_client->request(AUDIO_GET_METHOD, args);
+        connect(reply, &Vreen::Reply::resultReady, this, &MainWindow::onRefreshed);
+    }
+    else
+    {
+        args.insert(AUDIO_GETPOPULAR_FIELD_COUNT, m_ui->countOfTracksSpinBox->value());
+        args.insert(AUDIO_GETPOPULAR_FIELD_GENRE, -m_albums->value(m_ui->albumsComboBox->currentText()));
+        args.insert(AUDIO_GETPOPULAR_FIELD_ENGLISH_ONLY, (m_ui->englishOnlyCheckBox->isChecked())?"1":"0");
+        auto reply = m_client->request(AUDIO_GETPOPULAR_METHOD, args);
+        connect(reply, &Vreen::Reply::resultReady, this, &MainWindow::onRefreshed);
+    }
 }
 
 void MainWindow::refreshAlbumList()
@@ -156,22 +183,8 @@ void MainWindow::syncAudio()
 
 }
 
-/*void MainWindow::saveToken(const QByteArray &token, time_t expires)
+void MainWindow::on_albumsComboBox_currentTextChanged(const QString &arg1)
 {
-    if (!token.isEmpty())
-    {
-        qDebug() << token << " " << expires;
-        m_settings->beginGroup("auth");
-        m_settings->setValue("has_token", true);
-        m_settings->setValue("access_token", token);
-        m_settings->endGroup();
-    }
-    else
-    {
-        qDebug() << "empty token";
-        m_settings->beginGroup("auth");
-        m_settings->setValue("has_token", false);
-        m_settings->setValue("access_token", NULL);
-        m_settings->endGroup();
-    }
-}*/
+    // enable english-only checkbox only if we selected some kind of "popular" list
+    m_ui->englishOnlyCheckBox->setEnabled(m_albums->value(arg1) < 0);
+}

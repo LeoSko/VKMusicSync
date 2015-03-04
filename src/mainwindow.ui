@@ -39,6 +39,9 @@
       </item>
       <item>
        <widget class="QLabel" name="countOfTrackslbl">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="text">
          <string>Count of tracks</string>
         </property>
@@ -46,6 +49,9 @@
       </item>
       <item>
        <widget class="QSpinBox" name="countOfTracksSpinBox">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The amount of tracks to be synced can be from 1 to 6000. If you set too large number, all possible tracks will be synced.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
@@ -61,10 +67,33 @@
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="albumsComboBox"/>
+       <widget class="QComboBox" name="albumsComboBox">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>140</width>
+          <height>0</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="englishOnlyCheckBox">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="text">
+         <string>English only</string>
+        </property>
+       </widget>
       </item>
       <item>
        <widget class="QPushButton" name="refreshAlbumsButton">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="text">
          <string>Refresh albums</string>
         </property>
@@ -88,17 +117,26 @@
         </property>
        </spacer>
       </item>
-      <item>
-       <widget class="QPushButton" name="loginButton">
-        <property name="text">
-         <string>Login</string>
-        </property>
-       </widget>
-      </item>
      </layout>
     </item>
     <item>
+     <spacer name="horizontalSpacer_3">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>40</width>
+        <height>20</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+    <item>
      <widget class="QListWidget" name="audioList">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
       <property name="font">
        <font>
         <pointsize>11</pointsize>
@@ -114,7 +152,7 @@
       <item>
        <widget class="QLabel" name="onlineStateLbl">
         <property name="text">
-         <string>Offline</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:11pt; font-weight:600; color:#ff0004;&quot;&gt;Offline&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
        </widget>
       </item>
@@ -130,6 +168,20 @@
          </size>
         </property>
        </spacer>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="rememberMeCheckBox">
+        <property name="text">
+         <string>Remember me</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="loginButton">
+        <property name="text">
+         <string>Login</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>

@@ -3,7 +3,7 @@
 
 const int APPLICATION_VK_ID = 4378706;
 
-const int MAX_AUDIO_GET_COUNT = 6000;
+const int MAX_AUDIO_GET_COUNT = 1000;
 const int MAX_ALBUMS_GET_COUNT = 100;
 
 const int DEFAULT_ALBUM_ID = 0;
