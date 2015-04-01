@@ -149,8 +149,8 @@ void MainWindow::onRefreshed(const QVariant &vars)
     {
         QVariantMap vm = v.toMap();
         QTextDocument tdTitle, tdArtist;
-        tdTitle.setHtml(vm[AUDIO_FIELD_TITLE].toString());
-        tdArtist.setHtml(vm[AUDIO_FIELD_ARTIST].toString());
+        tdTitle.setHtml(vm[AUDIO_FIELD_TITLE].toString().replace(QRegExp("[?\\/|:*\"<>]"), ""));
+        tdArtist.setHtml(vm[AUDIO_FIELD_ARTIST].toString().replace(QRegExp("[?\\/|:*\"<>]"), ""));
         Audio a(vm[AUDIO_FIELD_ID].toInt(), tdArtist.toPlainText(), tdTitle.toPlainText(),
                 vm[AUDIO_FIELD_URL].toString(), vm[AUDIO_FIELD_DURATION].toInt(), vm[AUDIO_FIELD_GENRE].toInt());
         m_audioList->append(a);
@@ -172,6 +172,10 @@ void MainWindow::refreshItemListHighlight()
         if (QFile::exists(path))
         {
             m_ui->audioList->item(i)->setBackgroundColor(Qt::gray);
+        }
+        else
+        {
+            m_ui->audioList->item(i)->setBackgroundColor(Qt::white);
         }
     }
 }
@@ -256,6 +260,7 @@ void MainWindow::on_albumsComboBox_currentTextChanged(const QString &arg1)
 void MainWindow::on_folderToolButton_clicked()
 {
     m_ui->folderLineEdit->setText(QFileDialog::getExistingDirectory(this, FOLDER_SELECTOR_TITLE, m_ui->folderLineEdit->text()));
+    refreshItemListHighlight();
 }
 
 void MainWindow::on_syncButton_clicked()
@@ -300,11 +305,15 @@ void MainWindow::fileDownloaded(QNetworkReply *r)
 {
     QPair<QUrl, QPair<QString, int>> last = m_downloadList->dequeue();
     QFile *file = new QFile(last.second.first);
-    if(file->open(QFile::Append))
+    if (file->open(QFile::Append))
     {
         file->write(r->readAll());
         file->flush();
         file->close();
+    }
+    else
+    {
+        qDebug() << file->errorString();
     }
     delete file;
     m_ui->audioList->item(last.second.second)->setBackgroundColor(Qt::gray);
