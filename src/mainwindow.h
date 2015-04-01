@@ -33,6 +33,7 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
+    void downloadNext();
 private:
     Ui::MainWindow *m_ui;
     Vreen::OAuthConnection *m_auth;
@@ -40,6 +41,9 @@ private:
     QSettings *m_settings;
     QList<Audio> *m_audioList;
     QMap<QString, int> *m_albums;
+    QString m_dir;
+    QQueue<QPair<QUrl, QPair<QString, int>>> *m_downloadList;
+    QNetworkAccessManager *m_networkManager;
 
 public slots:
     void onOnlineChanged(bool online);
@@ -52,8 +56,13 @@ public slots:
     void syncAudio();
     void logout();
     void login();
+
+    void downloadProgress(quint64 got, quint64 total);
 private slots:
     void on_albumsComboBox_currentTextChanged(const QString &arg1);
+    void on_folderToolButton_clicked();
+    void on_syncButton_clicked();
+    void fileDownloaded(QNetworkReply *);
 };
 
 #endif // MAINWINDOW_H

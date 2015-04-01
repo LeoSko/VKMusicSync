@@ -8,6 +8,11 @@
 #include <QDebug>
 #include <QThread>
 #include <QSettings>
+#include <QDir>
+#include <QFileDialog>
+#include <QNetworkReply>
+#include <QQueue>
+#include <QTextDocument>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -16,7 +21,10 @@ MainWindow::MainWindow(QWidget *parent) :
     m_auth(new Vreen::OAuthConnection(APPLICATION_VK_ID, this)),
     m_settings(new QSettings(ORG_NAME)),
     m_audioList(new QList<Audio>()),
-    m_albums(new QMap<QString, int>())
+    m_albums(new QMap<QString, int>()),
+    m_dir(QDir::root().absolutePath()),
+    m_downloadList(new QQueue<QPair<QUrl, QPair<QString, int>>>()),
+    m_networkManager(new QNetworkAccessManager(this))
 {
     m_ui->setupUi(this);
     m_ui->countOfTracksSpinBox->setMaximum(MAX_AUDIO_GET_COUNT);
@@ -26,6 +34,8 @@ MainWindow::MainWindow(QWidget *parent) :
     m_auth->setScopes(Vreen::OAuthConnection::Audio);
     m_client->setConnection(m_auth);
 
+    //m_ui->rememberMeCheckBox->setEnabled(!m_auth->accessToken().isEmpty());
+
     connect(m_client, &Vreen::Client::onlineStateChanged, this, &MainWindow::onOnlineChanged);
     connect(m_client->roster(), &Vreen::Roster::syncFinished, this, &MainWindow::onSynced);
     connect(m_ui->refreshButton, &QPushButton::clicked, this, &MainWindow::refreshAudioList);
@@ -34,11 +44,14 @@ MainWindow::MainWindow(QWidget *parent) :
 
     connect(m_ui->loginButton, &QPushButton::clicked, this, &MainWindow::login);
 
+    connect(m_networkManager, &QNetworkAccessManager::finished, this, &MainWindow::fileDownloaded);
+
     m_ui->audioList->reset();
 }
 
 MainWindow::~MainWindow()
 {
+    delete m_downloadList;
     delete m_audioList;
     delete m_albums;
     delete m_client;
@@ -90,7 +103,7 @@ void MainWindow::onOnlineChanged(bool online)
 
 void MainWindow::onSynced(const QVariant &vars)
 {
-
+    m_ui->statusBar->showMessage(STATUS_BAR_SYNCED_MESSAGE, LONG_STATUS_BAR_MESSAGE);
 }
 
 void MainWindow::onRefreshed(const QVariant &vars)
@@ -103,7 +116,10 @@ void MainWindow::onRefreshed(const QVariant &vars)
     for (QVariant v : answer)
     {
         QVariantMap vm = v.toMap();
-        Audio a(vm[AUDIO_FIELD_ID].toInt(), vm[AUDIO_FIELD_ARTIST].toString(), vm[AUDIO_FIELD_TITLE].toString(),
+        QTextDocument tdTitle, tdArtist;
+        tdTitle.setHtml(vm[AUDIO_FIELD_TITLE].toString());
+        tdArtist.setHtml(vm[AUDIO_FIELD_ARTIST].toString());
+        Audio a(vm[AUDIO_FIELD_ID].toInt(), tdArtist.toPlainText(), tdTitle.toPlainText(),
                 vm[AUDIO_FIELD_URL].toString(), vm[AUDIO_FIELD_DURATION].toInt(), vm[AUDIO_FIELD_GENRE].toInt());
         m_audioList->append(a);
         m_ui->audioList->addItem(AUDIO_LIST_SHOW_PATTERN.arg(a.artist, a.title,
@@ -137,6 +153,8 @@ void MainWindow::onAlbumsListReceived(const QVariant &vars)
         m_ui->albumsComboBox->addItem(key);
     }
     m_ui->albumsComboBox->insertSeparator(m_albums->size());
+    // There is no way of m_albums->size() to be 0 cuz we always have "My audio"
+    m_ui->albumsComboBox->setCurrentIndex(m_albums->size() - 1);
     for (QString key : POPULAR_GENRES.keys())
     {
         m_ui->albumsComboBox->addItem(key);
@@ -187,4 +205,70 @@ void MainWindow::on_albumsComboBox_currentTextChanged(const QString &arg1)
 {
     // enable english-only checkbox only if we selected some kind of "popular" list
     m_ui->englishOnlyCheckBox->setEnabled(m_albums->value(arg1) < 0);
+}
+
+void MainWindow::on_folderToolButton_clicked()
+{
+    m_dir = QFileDialog::getExistingDirectory(this, FOLDER_SELECTOR_TITLE, m_dir);
+    m_ui->folderLineEdit->setText(m_dir);
+}
+
+void MainWindow::on_syncButton_clicked()
+{
+    QString path = FILE_PATH_PATTERN.arg(m_ui->folderLineEdit->text());
+    for (int i = 0; i < m_ui->audioList->count(); i++)
+    {
+        m_ui->audioList->item(i)->setBackgroundColor(Qt::lightGray);
+    }
+    for (int i = 0; i < m_audioList->size(); i++)
+    {
+        Audio a = m_audioList->at(i);
+        QString currentPath = path.arg(a.artist, a.title);
+        if (!QFile(currentPath).exists())
+        {
+            m_downloadList->enqueue(QPair<QUrl, QPair<QString, int> >(QUrl(a.url), QPair<QString, int>(currentPath, i)));
+            m_ui->audioList->item(i)->setBackgroundColor(Qt::white);
+        }
+    }
+    m_ui->progressBarAll->setValue(0);
+    m_ui->progressBarFile->setValue(0);
+    m_ui->progressBarAll->setMaximum(m_downloadList->size());
+    downloadNext();
+}
+
+void MainWindow::downloadNext()
+{
+    if (m_downloadList->empty())
+    {
+        m_ui->progressBarAll->setValue(m_ui->progressBarAll->maximum());
+        m_ui->progressBarFile->setValue(m_ui->progressBarFile->maximum());
+        qDebug() << "Finished downloading";
+        return;
+    }
+    QPair<QUrl, QPair<QString, int>> next = m_downloadList->head();
+    auto reply = m_networkManager->get(QNetworkRequest(next.first));
+    connect(reply, &QNetworkReply::downloadProgress, this, &MainWindow::downloadProgress);
+    qDebug() << "Downloading " << next;
+}
+
+void MainWindow::fileDownloaded(QNetworkReply *r)
+{
+    QPair<QUrl, QPair<QString, int>> last = m_downloadList->dequeue();
+    QFile *file = new QFile(last.second.first);
+    if(file->open(QFile::Append))
+    {
+        file->write(r->readAll());
+        file->flush();
+        file->close();
+    }
+    delete file;
+    m_ui->audioList->item(last.second.second)->setBackgroundColor(Qt::gray);
+    m_ui->progressBarAll->setValue(m_ui->progressBarAll->value() + 1);
+    downloadNext();
+}
+
+void MainWindow::downloadProgress(quint64 got, quint64 total)
+{
+    m_ui->progressBarFile->setMaximum(total);
+    m_ui->progressBarFile->setValue(got);
 }

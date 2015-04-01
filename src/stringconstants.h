@@ -10,6 +10,7 @@ const QString APP_NAME = "VKMusicSync";
 const QString APP_VERSION = "0.1b";
 
 const QString AUDIO_LIST_SHOW_PATTERN = "%1 - %2 [%3:%4]";
+const QString FILE_PATH_PATTERN = "%1/%2 - %3.mp3";
 
 const QString AUDIO_FIELD_ID = "id";
 const QString AUDIO_FIELD_TITLE = "title";
@@ -39,6 +40,9 @@ const QString STATUS_BAR_PROCESSING_ANSWER = "Processing";
 const QString STATUS_BAR_REFRESHED_AUDIO_LIST = "Refreshed";
 const QString STATUS_BAR_REFRESHING_AUDIO_LIST = "Refreshing audio list";
 const QString STATUS_BAR_REFRESHING_ALBUMS_LIST = "Refreshing albums list";
+const QString STATUS_BAR_SYNCED_MESSAGE = "Ready to go";
+
+const QString FOLDER_SELECTOR_TITLE = "Select folder";
 
 const QString LOGOUT_BUTTON = "Logout";
 const QString LOGIN_BUTTON = "Login";

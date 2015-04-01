@@ -24,4 +24,4 @@ This program is going to sync your audio lists from VK.com to your current devic
 ## Contacts
 The project is started for IT courses of SPb ETU by its' students. Feel free to contact us in order to improve this software.
 - Skorospelov Leonid (group 2381) - leosko94@mail.ru
-- Razdobreev Nikita (group 2381) - exzo0mex@gmail.com
+
