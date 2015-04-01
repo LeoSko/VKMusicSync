@@ -41,10 +41,12 @@ private:
     QSettings *m_settings;
     QList<Audio> *m_audioList;
     QMap<QString, int> *m_albums;
-    QString m_dir;
     QQueue<QPair<QUrl, QPair<QString, int>>> *m_downloadList;
     QNetworkAccessManager *m_networkManager;
 
+    void loadSettings();
+    void saveSettings();
+    void refreshItemListHighlight();
 public slots:
     void onOnlineChanged(bool online);
     void onSynced(const QVariant &vars);

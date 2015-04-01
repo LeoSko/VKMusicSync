@@ -19,14 +19,14 @@ MainWindow::MainWindow(QWidget *parent) :
     m_ui(new Ui::MainWindow),
     m_client(new Vreen::Client(this)),
     m_auth(new Vreen::OAuthConnection(APPLICATION_VK_ID, this)),
-    m_settings(new QSettings(ORG_NAME)),
+    m_settings(new QSettings(ORG_NAME, APP_NAME, this)),
     m_audioList(new QList<Audio>()),
     m_albums(new QMap<QString, int>()),
-    m_dir(QDir::root().absolutePath()),
     m_downloadList(new QQueue<QPair<QUrl, QPair<QString, int>>>()),
     m_networkManager(new QNetworkAccessManager(this))
 {
     m_ui->setupUi(this);
+    m_ui->folderLineEdit->setText(QDir::rootPath());
     m_ui->countOfTracksSpinBox->setMaximum(MAX_AUDIO_GET_COUNT);
     this->setWindowTitle(APP_NAME + " " + APP_VERSION);
     m_auth->setConnectionOption(Vreen::Connection::ShowAuthDialog, true);
@@ -47,10 +47,13 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(m_networkManager, &QNetworkAccessManager::finished, this, &MainWindow::fileDownloaded);
 
     m_ui->audioList->reset();
+
+    loadSettings();
 }
 
 MainWindow::~MainWindow()
 {
+    saveSettings();
     delete m_downloadList;
     delete m_audioList;
     delete m_albums;
@@ -58,6 +61,34 @@ MainWindow::~MainWindow()
     delete m_auth;
     delete m_settings;
     delete m_ui;
+}
+
+void MainWindow::loadSettings()
+{
+    m_settings->beginGroup("ui");
+    m_ui->rememberMeCheckBox->setChecked(m_settings->value("rememberLoggedInState").toBool());
+    this->restoreGeometry(m_settings->value("geometry").toByteArray());
+    m_settings->endGroup();
+
+    m_settings->beginGroup("internal");
+    m_ui->countOfTracksSpinBox->setValue(m_settings->value("countOfTracks").toInt());
+    m_ui->englishOnlyCheckBox->setChecked(m_settings->value("englishOnly").toBool());
+    m_ui->folderLineEdit->setText(m_settings->value("dir").toString());
+    m_settings->endGroup();
+}
+
+void MainWindow::saveSettings()
+{
+    m_settings->beginGroup("ui");
+    m_settings->setValue("rememberLoggedInState", m_ui->rememberMeCheckBox->isChecked());
+    m_settings->setValue("geometry", this->saveGeometry());
+    m_settings->endGroup();
+
+    m_settings->beginGroup("internal");
+    m_settings->setValue("countOfTracks", m_ui->countOfTracksSpinBox->value());
+    m_settings->setValue("englishOnly", m_ui->englishOnlyCheckBox->isChecked());
+    m_settings->setValue("dir", m_ui->folderLineEdit->text());
+    m_settings->endGroup();
 }
 
 void MainWindow::login()
@@ -104,6 +135,7 @@ void MainWindow::onOnlineChanged(bool online)
 void MainWindow::onSynced(const QVariant &vars)
 {
     m_ui->statusBar->showMessage(STATUS_BAR_SYNCED_MESSAGE, LONG_STATUS_BAR_MESSAGE);
+    refreshItemListHighlight();
 }
 
 void MainWindow::onRefreshed(const QVariant &vars)
@@ -128,6 +160,20 @@ void MainWindow::onRefreshed(const QVariant &vars)
     }
     m_ui->statusBar->showMessage(STATUS_BAR_REFRESHED_AUDIO_LIST, LONG_STATUS_BAR_MESSAGE);
     m_ui->syncButton->setEnabled(true);
+    refreshItemListHighlight();
+}
+
+void MainWindow::refreshItemListHighlight()
+{
+    for (int i = 0; i < m_ui->audioList->count(); i++)
+    {
+        Audio a = m_audioList->at(i);
+        QString path = FILE_PATH_PATTERN.arg(m_ui->folderLineEdit->text(), a.artist, a.title);
+        if (QFile::exists(path))
+        {
+            m_ui->audioList->item(i)->setBackgroundColor(Qt::gray);
+        }
+    }
 }
 
 void MainWindow::onAlbumsListReceived(const QVariant &vars)
@@ -209,8 +255,7 @@ void MainWindow::on_albumsComboBox_currentTextChanged(const QString &arg1)
 
 void MainWindow::on_folderToolButton_clicked()
 {
-    m_dir = QFileDialog::getExistingDirectory(this, FOLDER_SELECTOR_TITLE, m_dir);
-    m_ui->folderLineEdit->setText(m_dir);
+    m_ui->folderLineEdit->setText(QFileDialog::getExistingDirectory(this, FOLDER_SELECTOR_TITLE, m_ui->folderLineEdit->text()));
 }
 
 void MainWindow::on_syncButton_clicked()
