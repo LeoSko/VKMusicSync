@@ -23,3 +23,8 @@ INCLUDEPATH += $$PWD/3rdparty
 DEPENDPATH += $$PWD/3rdparty
 
 unix|win32: LIBS += -L$$PWD/3rdparty/lib/ -lvreenoauth
+
+RC_ICONS = $$PWD/icons/VKMusicSyncIcon.ico
+
+RESOURCES += \
+    resources.qrc

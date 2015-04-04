@@ -13,6 +13,9 @@
 #include <QNetworkReply>
 #include <QQueue>
 #include <QTextDocument>
+#include <QMessageBox>
+#include <QTimer>
+#include <QSystemTrayIcon>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -23,9 +26,14 @@ MainWindow::MainWindow(QWidget *parent) :
     m_audioList(new QList<Audio>()),
     m_albums(new QMap<QString, int>()),
     m_downloadList(new QQueue<QPair<QUrl, QPair<QString, int>>>()),
-    m_networkManager(new QNetworkAccessManager(this))
+    m_networkManager(new QNetworkAccessManager(this)),
+    m_oldFiles(new QFileInfoList()),
+    m_syncTimer(new QTimer(this)),
+    m_trayIcon(new QSystemTrayIcon(this)),
+    m_icon(QIcon(ICON_PATH))
 {
     m_ui->setupUi(this);
+    this->setWindowIcon(m_icon);
     m_ui->folderLineEdit->setText(QDir::rootPath());
     m_ui->countOfTracksSpinBox->setMaximum(MAX_AUDIO_GET_COUNT);
     this->setWindowTitle(APP_NAME + " " + APP_VERSION);
@@ -34,26 +42,19 @@ MainWindow::MainWindow(QWidget *parent) :
     m_auth->setScopes(Vreen::OAuthConnection::Audio);
     m_client->setConnection(m_auth);
 
-    //m_ui->rememberMeCheckBox->setEnabled(!m_auth->accessToken().isEmpty());
-
-    connect(m_client, &Vreen::Client::onlineStateChanged, this, &MainWindow::onOnlineChanged);
-    connect(m_client->roster(), &Vreen::Roster::syncFinished, this, &MainWindow::onSynced);
-    connect(m_ui->refreshButton, &QPushButton::clicked, this, &MainWindow::refreshAudioList);
-    connect(m_ui->syncButton, &QPushButton::clicked, this, &MainWindow::syncAudio);
-    connect(m_ui->refreshAlbumsButton, &QPushButton::clicked, this, &MainWindow::refreshAlbumList);
-
-    connect(m_ui->loginButton, &QPushButton::clicked, this, &MainWindow::login);
-
-    connect(m_networkManager, &QNetworkAccessManager::finished, this, &MainWindow::fileDownloaded);
-
     m_ui->audioList->reset();
 
+    createConnections();
     loadSettings();
+    createTrayIcon();
 }
 
 MainWindow::~MainWindow()
 {
     saveSettings();
+    delete m_syncTimer;
+    delete m_trayIcon;
+    delete m_oldFiles;
     delete m_downloadList;
     delete m_audioList;
     delete m_albums;
@@ -136,6 +137,7 @@ void MainWindow::onSynced(const QVariant &vars)
 {
     m_ui->statusBar->showMessage(STATUS_BAR_SYNCED_MESSAGE, LONG_STATUS_BAR_MESSAGE);
     refreshItemListHighlight();
+    refreshOldAudioList();
 }
 
 void MainWindow::onRefreshed(const QVariant &vars)
@@ -149,6 +151,7 @@ void MainWindow::onRefreshed(const QVariant &vars)
     {
         QVariantMap vm = v.toMap();
         QTextDocument tdTitle, tdArtist;
+        // we need to replace some strange symbols that are incorrect to be in name of files at most systems
         tdTitle.setHtml(vm[AUDIO_FIELD_TITLE].toString().replace(QRegExp("[?\\/|:*\"<>]"), ""));
         tdArtist.setHtml(vm[AUDIO_FIELD_ARTIST].toString().replace(QRegExp("[?\\/|:*\"<>]"), ""));
         Audio a(vm[AUDIO_FIELD_ID].toInt(), tdArtist.toPlainText(), tdTitle.toPlainText(),
@@ -161,6 +164,7 @@ void MainWindow::onRefreshed(const QVariant &vars)
     m_ui->statusBar->showMessage(STATUS_BAR_REFRESHED_AUDIO_LIST, LONG_STATUS_BAR_MESSAGE);
     m_ui->syncButton->setEnabled(true);
     refreshItemListHighlight();
+    refreshOldAudioList();
 }
 
 void MainWindow::refreshItemListHighlight()
@@ -212,6 +216,28 @@ void MainWindow::onAlbumsListReceived(const QVariant &vars)
     }
 }
 
+void MainWindow::changeEvent(QEvent* e)
+{
+    switch (e->type())
+    {
+        case QEvent::LanguageChange:
+            this->m_ui->retranslateUi(this);
+            break;
+        case QEvent::WindowStateChange:
+            {
+                if (this->windowState() & Qt::WindowMinimized)
+                {
+                    QTimer::singleShot(0, this, SLOT(hide()));
+                }
+                break;
+            }
+        default:
+            break;
+    }
+
+    QMainWindow::changeEvent(e);
+}
+
 void MainWindow::refreshAudioList()
 {
     m_audioList->clear();
@@ -246,11 +272,6 @@ void MainWindow::refreshAlbumList()
     connect(reply, &Vreen::Reply::resultReady, this, &MainWindow::onAlbumsListReceived);
 }
 
-void MainWindow::syncAudio()
-{
-
-}
-
 void MainWindow::on_albumsComboBox_currentTextChanged(const QString &arg1)
 {
     // enable english-only checkbox only if we selected some kind of "popular" list
@@ -261,6 +282,7 @@ void MainWindow::on_folderToolButton_clicked()
 {
     m_ui->folderLineEdit->setText(QFileDialog::getExistingDirectory(this, FOLDER_SELECTOR_TITLE, m_ui->folderLineEdit->text()));
     refreshItemListHighlight();
+    refreshOldAudioList();
 }
 
 void MainWindow::on_syncButton_clicked()
@@ -325,4 +347,119 @@ void MainWindow::downloadProgress(quint64 got, quint64 total)
 {
     m_ui->progressBarFile->setMaximum(total);
     m_ui->progressBarFile->setValue(got);
+}
+
+bool MainWindow::canDownloadAudio(QString filename)
+{
+    for (int i = 0; i < m_audioList->size(); i++)
+    {
+        Audio a = m_audioList->at(i);
+        QString fn = a.artist + " - " + a.title + ".mp3";
+        if (filename == fn)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void MainWindow::refreshOldAudioList()
+{
+    m_oldFiles->clear();
+    // get list of files in current directory and check if
+    // we have same name
+    QDir currentDir = QDir(m_ui->folderLineEdit->text());
+    if (!currentDir.exists())
+    {
+        m_ui->removeToolButton->setEnabled(false);
+        return;
+    }
+    QStringList filter;
+    filter << "*.mp3";
+    QFileInfoList fileList = currentDir.entryInfoList(filter, QDir::Files | QDir::NoDotAndDotDot);
+    for (QFileInfo fi : fileList)
+    {
+        qDebug() << fi.absoluteFilePath();
+        if (fi.isFile() && (fi.absoluteDir().absolutePath() == currentDir.absolutePath())
+                && !canDownloadAudio(fi.fileName()))
+        {
+            m_oldFiles->append(fi);
+        }
+    }
+    m_ui->removeToolButton->setText("X (" + QString::number(m_oldFiles->size()) + ")");
+    m_ui->removeToolButton->setEnabled(m_oldFiles->size() != 0);
+}
+
+void MainWindow::on_removeToolButton_clicked()
+{
+    QString res;
+    for (QFileInfo fi : *m_oldFiles)
+    {
+        res += fi.absoluteFilePath() + '\n';
+    }
+    int r = QMessageBox::warning(this, FILE_DELETION_DIALOG_TITLE, FILE_DELETION_TEXT_PATTERN.arg(res), QMessageBox::Yes, QMessageBox::Cancel);
+    if (r == QMessageBox::Cancel)
+    {
+        return;
+    }
+    QString unremoved;
+    for (QFileInfo fi : *m_oldFiles)
+    {
+        QFile f(fi.absoluteFilePath());
+        if (!f.remove())
+        {
+            unremoved += fi.absoluteFilePath() + '\n';
+        }
+    }
+    if (!unremoved.isEmpty())
+    {
+        QMessageBox::information(this, FILE_UNREMOVABLE_DIALOG_TITLE, FILE_UNREMOVABLE_DIALOG_TEXT_PATTERN.arg(unremoved), QMessageBox::Ok);
+    }
+    refreshOldAudioList();
+}
+
+void MainWindow::createConnections()
+{
+    connect(m_client, &Vreen::Client::onlineStateChanged, this, &MainWindow::onOnlineChanged);
+    connect(m_client->roster(), &Vreen::Roster::syncFinished, this, &MainWindow::onSynced);
+    connect(m_ui->refreshButton, &QPushButton::clicked, this, &MainWindow::refreshAudioList);
+    connect(m_ui->refreshAlbumsButton, &QPushButton::clicked, this, &MainWindow::refreshAlbumList);
+
+    connect(m_ui->loginButton, &QPushButton::clicked, this, &MainWindow::login);
+
+    connect(m_networkManager, &QNetworkAccessManager::finished, this, &MainWindow::fileDownloaded);
+}
+
+void MainWindow::createTrayIcon()
+{
+    m_trayIcon->setIcon(m_icon);
+    connect(m_trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::showFromTray);
+
+    QAction *showAction = new QAction(TRAY_SHOW_ACTION_TEXT, m_trayIcon);
+    connect(showAction, &QAction::triggered, this, &MainWindow::raiseFromTray);
+
+    QAction *exitAction = new QAction(TRAY_EXIT_ACTION_TEXT, m_trayIcon);
+    connect(exitAction, &QAction::triggered, this, &MainWindow::close);
+
+    QMenu *trayMenu = new QMenu(this);
+    trayMenu->addAction(showAction);
+    trayMenu->addAction(exitAction);
+
+    m_trayIcon->setContextMenu(trayMenu);
+    m_trayIcon->show();
+}
+
+void MainWindow::raiseFromTray()
+{
+    show();
+    raise();
+    activateWindow();
+}
+
+void MainWindow::showFromTray(QSystemTrayIcon::ActivationReason reason)
+{
+    if (reason == QSystemTrayIcon::DoubleClick)
+    {
+        raiseFromTray();
+    }
 }

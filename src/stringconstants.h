@@ -43,9 +43,18 @@ const QString STATUS_BAR_REFRESHING_ALBUMS_LIST = "Refreshing albums list";
 const QString STATUS_BAR_SYNCED_MESSAGE = "Ready to go";
 
 const QString FOLDER_SELECTOR_TITLE = "Select folder";
+const QString FILE_DELETION_DIALOG_TITLE = "Removing files";
+const QString FILE_DELETION_TEXT_PATTERN = "The following files are going to be removed: %1 \nAre you sure want to delete them?";
+const QString FILE_UNREMOVABLE_DIALOG_TITLE = "Error removing files";
+const QString FILE_UNREMOVABLE_DIALOG_TEXT_PATTERN = "The following files could not be removed: %1";
+
+const QString TRAY_SHOW_ACTION_TEXT = "Show/raise window";
+const QString TRAY_EXIT_ACTION_TEXT = "Exit";
 
 const QString LOGOUT_BUTTON = "Logout";
 const QString LOGIN_BUTTON = "Login";
+
+const QString ICON_PATH = ":/icons/VKMusicSyncIcon.ico";
 
 const QString DEFAULT_ALBUM_NAME = "My audio";
 

@@ -5,6 +5,8 @@
 #include <vreen/client.h>
 #include <vreen/auth/oauthconnection.h>
 #include <QList>
+#include <QFileInfoList>
+#include <QSystemTrayIcon>
 
 class QSettings;
 
@@ -33,7 +35,9 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-    void downloadNext();
+    void createConnections();
+    void createTrayIcon();
+    void raiseFromTray();
 private:
     Ui::MainWindow *m_ui;
     Vreen::OAuthConnection *m_auth;
@@ -43,10 +47,17 @@ private:
     QMap<QString, int> *m_albums;
     QQueue<QPair<QUrl, QPair<QString, int>>> *m_downloadList;
     QNetworkAccessManager *m_networkManager;
+    QFileInfoList *m_oldFiles;
+    QTimer *m_syncTimer;
+    QSystemTrayIcon *m_trayIcon;
+    QIcon m_icon;
 
     void loadSettings();
     void saveSettings();
     void refreshItemListHighlight();
+    bool canDownloadAudio(QString filename);
+    void downloadNext();
+    void refreshOldAudioList();
 public slots:
     void onOnlineChanged(bool online);
     void onSynced(const QVariant &vars);
@@ -54,17 +65,18 @@ public slots:
     void onAlbumsListReceived(const QVariant &vars);
     void refreshAudioList();
     void refreshAlbumList();
-    //void saveToken(const QByteArray &token, time_t expires);
-    void syncAudio();
     void logout();
     void login();
 
     void downloadProgress(quint64 got, quint64 total);
+    void changeEvent(QEvent *e);
+    void showFromTray(QSystemTrayIcon::ActivationReason reason);
 private slots:
     void on_albumsComboBox_currentTextChanged(const QString &arg1);
     void on_folderToolButton_clicked();
     void on_syncButton_clicked();
     void fileDownloaded(QNetworkReply *);
+    void on_removeToolButton_clicked();
 };
 
 #endif // MAINWINDOW_H
