@@ -7,7 +7,7 @@
 
 const QString ORG_NAME = "bAnanapOtato";
 const QString APP_NAME = "VKMusicSync";
-const QString APP_VERSION = "0.1b";
+const QString APP_VERSION = "0.2";
 
 const QString AUDIO_LIST_SHOW_PATTERN = "%1 - %2 [%3:%4]";
 const QString FILE_PATH_PATTERN = "%1/%2 - %3.mp3";
@@ -48,8 +48,15 @@ const QString FILE_DELETION_TEXT_PATTERN = "The following files are going to be 
 const QString FILE_UNREMOVABLE_DIALOG_TITLE = "Error removing files";
 const QString FILE_UNREMOVABLE_DIALOG_TEXT_PATTERN = "The following files could not be removed: %1";
 
+const QString ABOUT_TITLE = "About VKMusicSync";
+const QString ABOUT_TEXT = "This program was created by\nLeonid Skorospelov (leosko94@gmail.com).\nFeel free to contact me in order to improve this software.";
+
 const QString TRAY_SHOW_ACTION_TEXT = "Show/raise window";
 const QString TRAY_EXIT_ACTION_TEXT = "Exit";
+const QString TRAY_MINIMIZED_TITLE = "Minimized to tray";
+const QString TRAY_MINIMIZED_TEXT = "I'm working from tray now, right click the icon and select 'Exit' to exit the program";
+const QString TRAY_SYNCED_TITLE = "Sync completed";
+const QString TRAY_SYNCED_TEXT_PATTERN = "Synced additionally %1 tracks, now there are %2 old tracks to remove.";
 
 const QString LOGOUT_BUTTON = "Logout";
 const QString LOGIN_BUTTON = "Login";

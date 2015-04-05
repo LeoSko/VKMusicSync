@@ -14,7 +14,7 @@
    <string>VKMusicSync</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="resources.qrc">
+   <iconset>
     <normaloff>:/icons/VKMusicSyncIcon.png</normaloff>:/icons/VKMusicSyncIcon.png</iconset>
   </property>
   <widget class="QWidget" name="centralWidget">
@@ -105,6 +105,13 @@
          <iconset theme="view-refresh">
           <normaloff/>
          </iconset>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="autoSyncCheckBox">
+        <property name="text">
+         <string>Auto</string>
         </property>
        </widget>
       </item>
@@ -220,7 +227,7 @@
     <item>
      <widget class="QListWidget" name="audioList">
       <property name="enabled">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
       <property name="font">
        <font>
@@ -281,12 +288,40 @@
      <height>18</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionSync"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuAbout">
+    <property name="title">
+     <string>?</string>
+    </property>
+    <addaction name="actionAbout"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuAbout"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
+  <action name="actionExit">
+   <property name="text">
+    <string>Exit</string>
+   </property>
+  </action>
+  <action name="actionSync">
+   <property name="text">
+    <string>Sync</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
- <resources>
-  <include location="resources.qrc"/>
- </resources>
+ <resources/>
  <connections/>
 </ui>

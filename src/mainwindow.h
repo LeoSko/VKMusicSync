@@ -38,6 +38,8 @@ public:
     void createConnections();
     void createTrayIcon();
     void raiseFromTray();
+    void createDownloadQueue();
+    void refreshUiBlock(bool checked);
 private:
     Ui::MainWindow *m_ui;
     Vreen::OAuthConnection *m_auth;
@@ -51,6 +53,7 @@ private:
     QTimer *m_syncTimer;
     QSystemTrayIcon *m_trayIcon;
     QIcon m_icon;
+    int m_lastSynced;
 
     void loadSettings();
     void saveSettings();
@@ -67,16 +70,21 @@ public slots:
     void refreshAlbumList();
     void logout();
     void login();
+    void albumChanged(const QString &arg1);
+    void chooseFolder();
 
     void downloadProgress(quint64 got, quint64 total);
     void changeEvent(QEvent *e);
     void showFromTray(QSystemTrayIcon::ActivationReason reason);
+    void timedSync();
+    void syncAudio();
+    void removeOldAudio();
+    void setAutoSyncMode(bool mode);
 private slots:
-    void on_albumsComboBox_currentTextChanged(const QString &arg1);
-    void on_folderToolButton_clicked();
-    void on_syncButton_clicked();
     void fileDownloaded(QNetworkReply *);
-    void on_removeToolButton_clicked();
+    void on_actionExit_triggered();
+    void on_actionSync_triggered();
+    void on_actionAbout_triggered();
 };
 
 #endif // MAINWINDOW_H

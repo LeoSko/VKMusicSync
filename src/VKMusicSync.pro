@@ -7,13 +7,16 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp\
-        mainwindow.cpp
+        mainwindow.cpp \
+    fileremovedialog.cpp
 
 HEADERS  += mainwindow.h \
     stringconstants.h \
-    numericalconstants.h
+    numericalconstants.h \
+    fileremovedialog.h
 
-FORMS    += mainwindow.ui
+FORMS    += mainwindow.ui \
+    fileremovedialog.ui
 
 win32:CONFIG(release, debug|release): LIBS += -L$$PWD/3rdparty/lib/ -lvreen
 else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/3rdparty/lib/ -lvreend

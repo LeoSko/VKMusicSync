@@ -16,6 +16,7 @@
 #include <QMessageBox>
 #include <QTimer>
 #include <QSystemTrayIcon>
+#include "fileremovedialog.h"
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -30,27 +31,31 @@ MainWindow::MainWindow(QWidget *parent) :
     m_oldFiles(new QFileInfoList()),
     m_syncTimer(new QTimer(this)),
     m_trayIcon(new QSystemTrayIcon(this)),
-    m_icon(QIcon(ICON_PATH))
+    m_icon(QIcon(ICON_PATH)),
+    m_lastSynced(0)
 {
     m_ui->setupUi(this);
     this->setWindowIcon(m_icon);
     m_ui->folderLineEdit->setText(QDir::rootPath());
     m_ui->countOfTracksSpinBox->setMaximum(MAX_AUDIO_GET_COUNT);
     this->setWindowTitle(APP_NAME + " " + APP_VERSION);
+
+    m_ui->audioList->reset();
+
+    loadSettings();
+
     m_auth->setConnectionOption(Vreen::Connection::ShowAuthDialog, true);
     m_auth->setConnectionOption(Vreen::Connection::KeepAuthData, true);
     m_auth->setScopes(Vreen::OAuthConnection::Audio);
     m_client->setConnection(m_auth);
 
-    m_ui->audioList->reset();
-
     createConnections();
-    loadSettings();
     createTrayIcon();
 }
 
 MainWindow::~MainWindow()
 {
+    m_trayIcon->hide();
     saveSettings();
     delete m_syncTimer;
     delete m_trayIcon;
@@ -69,6 +74,7 @@ void MainWindow::loadSettings()
     m_settings->beginGroup("ui");
     m_ui->rememberMeCheckBox->setChecked(m_settings->value("rememberLoggedInState").toBool());
     this->restoreGeometry(m_settings->value("geometry").toByteArray());
+    m_ui->autoSyncCheckBox->setChecked(m_settings->value("autoSyncEnabled").toBool());
     m_settings->endGroup();
 
     m_settings->beginGroup("internal");
@@ -83,6 +89,7 @@ void MainWindow::saveSettings()
     m_settings->beginGroup("ui");
     m_settings->setValue("rememberLoggedInState", m_ui->rememberMeCheckBox->isChecked());
     m_settings->setValue("geometry", this->saveGeometry());
+    m_settings->setValue("autoSyncEnabled", m_ui->autoSyncCheckBox->isChecked());
     m_settings->endGroup();
 
     m_settings->beginGroup("internal");
@@ -95,6 +102,7 @@ void MainWindow::saveSettings()
 void MainWindow::login()
 {
     m_client->connectToHost();
+    refreshAudioList();
 }
 
 void MainWindow::logout()
@@ -109,18 +117,13 @@ void MainWindow::logout()
 void MainWindow::onOnlineChanged(bool online)
 {
     m_ui->onlineStateLbl->setText((online)?ONLINE_STATE_LBL_ONLINE:ONLINE_STATE_LBL_OFFLINE);
-    m_ui->refreshButton->setEnabled(online);
-    m_ui->countOfTrackslbl->setEnabled(online);
-    m_ui->refreshAlbumsButton->setEnabled(online);
-    m_ui->albumsComboBox->setEnabled(online);
-    m_ui->audioList->setEnabled(online);
-    m_ui->countOfTracksSpinBox->setEnabled(online);
+    refreshUiBlock(m_ui->autoSyncCheckBox->isChecked());
     m_ui->loginButton->setText((online)?LOGOUT_BUTTON:LOGIN_BUTTON);
     if (online)
     {
         // Do some actions as we logged in and use onSynced to process answer
-        m_ui->refreshButton->click();
-        m_ui->refreshAlbumsButton->click();
+        refreshAlbumList();
+        refreshAudioList();
         disconnect(m_ui->loginButton, &QPushButton::clicked, this, &MainWindow::login);
         connect(m_ui->loginButton, &QPushButton::clicked, this, &MainWindow::logout);
     }
@@ -144,6 +147,8 @@ void MainWindow::onRefreshed(const QVariant &vars)
 {
     // Here we need to convert given answer to our list of audio
     // so that we could easily operate with them
+    m_audioList->clear();
+    m_ui->audioList->clear();
     QVariantList answer = vars.toList();
     m_ui->statusBar->showMessage(STATUS_BAR_PROCESSING_ANSWER, SHORT_STATUS_BAR_MESSAGE);
     // Process answer from server
@@ -162,9 +167,19 @@ void MainWindow::onRefreshed(const QVariant &vars)
                                                              QString::number(a.duration%60)));
     }
     m_ui->statusBar->showMessage(STATUS_BAR_REFRESHED_AUDIO_LIST, LONG_STATUS_BAR_MESSAGE);
-    m_ui->syncButton->setEnabled(true);
+    refreshUiBlock(m_ui->autoSyncCheckBox->isChecked());
     refreshItemListHighlight();
     refreshOldAudioList();
+    if (m_ui->autoSyncCheckBox->isChecked() && m_downloadList->isEmpty())
+    {
+        createDownloadQueue();
+        qDebug() << *m_downloadList;
+        m_lastSynced = m_downloadList->size();
+        if (m_lastSynced > 0)
+        {
+            syncAudio();
+        }
+    }
 }
 
 void MainWindow::refreshItemListHighlight()
@@ -228,6 +243,7 @@ void MainWindow::changeEvent(QEvent* e)
                 if (this->windowState() & Qt::WindowMinimized)
                 {
                     QTimer::singleShot(0, this, SLOT(hide()));
+                    m_trayIcon->showMessage(TRAY_MINIMIZED_TITLE, TRAY_MINIMIZED_TEXT);
                 }
                 break;
             }
@@ -248,6 +264,7 @@ void MainWindow::refreshAudioList()
     {
         args.insert(AUDIO_GET_FIELD_COUNT, m_ui->countOfTracksSpinBox->value());
         args.insert(AUDIO_GET_FIELD_ALBUM, m_albums->value(m_ui->albumsComboBox->currentText()));
+        qDebug() << args;
         auto reply = m_client->request(AUDIO_GET_METHOD, args);
         connect(reply, &Vreen::Reply::resultReady, this, &MainWindow::onRefreshed);
     }
@@ -256,6 +273,7 @@ void MainWindow::refreshAudioList()
         args.insert(AUDIO_GETPOPULAR_FIELD_COUNT, m_ui->countOfTracksSpinBox->value());
         args.insert(AUDIO_GETPOPULAR_FIELD_GENRE, -m_albums->value(m_ui->albumsComboBox->currentText()));
         args.insert(AUDIO_GETPOPULAR_FIELD_ENGLISH_ONLY, (m_ui->englishOnlyCheckBox->isChecked())?"1":"0");
+        qDebug() << args;
         auto reply = m_client->request(AUDIO_GETPOPULAR_METHOD, args);
         connect(reply, &Vreen::Reply::resultReady, this, &MainWindow::onRefreshed);
     }
@@ -272,21 +290,33 @@ void MainWindow::refreshAlbumList()
     connect(reply, &Vreen::Reply::resultReady, this, &MainWindow::onAlbumsListReceived);
 }
 
-void MainWindow::on_albumsComboBox_currentTextChanged(const QString &arg1)
+void MainWindow::albumChanged(const QString &arg1)
 {
     // enable english-only checkbox only if we selected some kind of "popular" list
     m_ui->englishOnlyCheckBox->setEnabled(m_albums->value(arg1) < 0);
+    if (m_ui->autoSyncCheckBox->isChecked())
+    {
+        return;
+    }
+    refreshAudioList();
+    refreshOldAudioList();
 }
 
-void MainWindow::on_folderToolButton_clicked()
+void MainWindow::chooseFolder()
 {
-    m_ui->folderLineEdit->setText(QFileDialog::getExistingDirectory(this, FOLDER_SELECTOR_TITLE, m_ui->folderLineEdit->text()));
+    QString dir = QFileDialog::getExistingDirectory(this, FOLDER_SELECTOR_TITLE, m_ui->folderLineEdit->text());
+    if (dir.isEmpty())
+    {
+        return;
+    }
+    m_ui->folderLineEdit->setText(dir);
     refreshItemListHighlight();
     refreshOldAudioList();
 }
 
-void MainWindow::on_syncButton_clicked()
+void MainWindow::createDownloadQueue()
 {
+    m_downloadList->clear();
     QString path = FILE_PATH_PATTERN.arg(m_ui->folderLineEdit->text());
     for (int i = 0; i < m_ui->audioList->count(); i++)
     {
@@ -302,9 +332,31 @@ void MainWindow::on_syncButton_clicked()
             m_ui->audioList->item(i)->setBackgroundColor(Qt::white);
         }
     }
+}
+
+void MainWindow::refreshUiBlock(bool autoChecked)
+{
+    bool res = !autoChecked && m_client->isOnline() && m_downloadList->isEmpty();
+    m_ui->albumsComboBox->setEnabled(res);
+    m_ui->syncButton->setEnabled(res);
+    m_ui->folderLineEdit->setEnabled(res);
+    m_ui->folderToolButton->setEnabled(res);
+    m_ui->refreshAlbumsButton->setEnabled(res);
+    m_ui->refreshButton->setEnabled(res);
+    //m_ui->removeToolButton->setEnabled(res);
+    m_ui->countOfTracksSpinBox->setEnabled(res);
+    m_ui->countOfTrackslbl->setEnabled(res);
+
+    m_ui->englishOnlyCheckBox->setEnabled(res && (m_albums->value(m_ui->albumsComboBox->currentText()) < 0));
+}
+
+void MainWindow::syncAudio()
+{
+    createDownloadQueue();
     m_ui->progressBarAll->setValue(0);
     m_ui->progressBarFile->setValue(0);
     m_ui->progressBarAll->setMaximum(m_downloadList->size());
+    refreshUiBlock(m_ui->autoSyncCheckBox->isChecked());
     downloadNext();
 }
 
@@ -314,6 +366,12 @@ void MainWindow::downloadNext()
     {
         m_ui->progressBarAll->setValue(m_ui->progressBarAll->maximum());
         m_ui->progressBarFile->setValue(m_ui->progressBarFile->maximum());
+        refreshUiBlock(m_ui->autoSyncCheckBox->isChecked());
+        refreshOldAudioList();
+        if (m_ui->autoSyncCheckBox->isChecked())
+        {
+            m_trayIcon->showMessage(TRAY_SYNCED_TITLE, TRAY_SYNCED_TEXT_PATTERN.arg(m_lastSynced).arg(QString::number(m_oldFiles->size())));
+        }
         qDebug() << "Finished downloading";
         return;
     }
@@ -390,15 +448,19 @@ void MainWindow::refreshOldAudioList()
     m_ui->removeToolButton->setEnabled(m_oldFiles->size() != 0);
 }
 
-void MainWindow::on_removeToolButton_clicked()
+void MainWindow::removeOldAudio()
 {
-    QString res;
+    QStringList res;
     for (QFileInfo fi : *m_oldFiles)
     {
-        res += fi.absoluteFilePath() + '\n';
+        res << fi.absoluteFilePath();
     }
-    int r = QMessageBox::warning(this, FILE_DELETION_DIALOG_TITLE, FILE_DELETION_TEXT_PATTERN.arg(res), QMessageBox::Yes, QMessageBox::Cancel);
-    if (r == QMessageBox::Cancel)
+    FileRemoveDialog *frd = new FileRemoveDialog(this);
+    frd->setFileList(res);
+    frd->exec();
+    int r = frd->result();
+    //QMessageBox::warning(this, FILE_DELETION_DIALOG_TITLE, FILE_DELETION_TEXT_PATTERN.arg(res), QMessageBox::Yes, QMessageBox::Cancel);
+    if (r == QDialog::Rejected)
     {
         return;
     }
@@ -424,10 +486,30 @@ void MainWindow::createConnections()
     connect(m_client->roster(), &Vreen::Roster::syncFinished, this, &MainWindow::onSynced);
     connect(m_ui->refreshButton, &QPushButton::clicked, this, &MainWindow::refreshAudioList);
     connect(m_ui->refreshAlbumsButton, &QPushButton::clicked, this, &MainWindow::refreshAlbumList);
+    connect(m_ui->albumsComboBox, &QComboBox::currentTextChanged, this, &MainWindow::albumChanged);
+    connect(m_ui->syncButton, &QPushButton::clicked, this, &MainWindow::syncAudio);
+    connect(m_ui->removeToolButton, &QToolButton::clicked, this, &MainWindow::removeOldAudio);
+    connect(m_ui->autoSyncCheckBox, &QCheckBox::toggled, this, &MainWindow::setAutoSyncMode);
 
+    connect(m_ui->folderToolButton, &QToolButton::clicked, this, &MainWindow::chooseFolder);
     connect(m_ui->loginButton, &QPushButton::clicked, this, &MainWindow::login);
 
     connect(m_networkManager, &QNetworkAccessManager::finished, this, &MainWindow::fileDownloaded);
+
+    connect(m_syncTimer, &QTimer::timeout, this, &MainWindow::timedSync);
+}
+
+void MainWindow::timedSync()
+{
+    if (!m_client->isOnline())
+    {
+        return;
+    }
+    if (m_downloadList->isEmpty())
+    {
+        refreshAudioList();
+        // and so we process inside
+    }
 }
 
 void MainWindow::createTrayIcon()
@@ -462,4 +544,32 @@ void MainWindow::showFromTray(QSystemTrayIcon::ActivationReason reason)
     {
         raiseFromTray();
     }
+}
+
+void MainWindow::setAutoSyncMode(bool mode)
+{
+    refreshUiBlock(mode);
+    if (mode)
+    {
+        m_syncTimer->start(60000);
+    }
+    else
+    {
+        m_syncTimer->stop();
+    }
+}
+
+void MainWindow::on_actionExit_triggered()
+{
+    close();
+}
+
+void MainWindow::on_actionSync_triggered()
+{
+    syncAudio();
+}
+
+void MainWindow::on_actionAbout_triggered()
+{
+    QMessageBox::about(this, ABOUT_TITLE, ABOUT_TEXT);
 }
