@@ -10,7 +10,6 @@ This program is going to sync your audio lists from VK.com to your current devic
 * Saving/loading the last state of settings (folder/count of tracks etc.)
 * Ability to remove old unnecessary tracks while syncing
 * Ability to switch between the whole "My audio" and your albums
-* Splitting audios into folders by their genre
 * Ability to sync lists "Popular" by their genre
 
 ### Desktop version
@@ -22,6 +21,5 @@ This program is going to sync your audio lists from VK.com to your current devic
 * On-charge-only sync
 
 ## Contacts
-The project is started for IT courses of SPb ETU by its' students. Feel free to contact us in order to improve this software.
+The project is started for IT courses of SPb ETU by its' student. Feel free to contact me in order to improve this software.
 - Skorospelov Leonid (group 2381) - leosko94@mail.ru
-
