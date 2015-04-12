@@ -4,6 +4,7 @@
 #include <QString>
 #include <QMap>
 #include <map>
+#include <vreen/client.h>
 
 const QString ORG_NAME = "bAnanapOtato";
 const QString APP_NAME = "VKMusicSync";
@@ -60,6 +61,21 @@ const QString TRAY_SYNCED_TEXT_PATTERN = "Synced additionally %1 tracks, now the
 
 const QString LOGOUT_BUTTON = "Logout";
 const QString LOGIN_BUTTON = "Login";
+
+const QString ERROR_TITLE = "Error";
+const std::map<Vreen::Client::Error, QString> E_T
+{
+    {Vreen::Client::ErrorUnknown, "Unknown error"},
+    {Vreen::Client::ErrorApplicationDisabled, "Application disabled"},
+    {Vreen::Client::ErrorIncorrectSignature, "Incorrect signature"},
+    {Vreen::Client::ErrorAuthorizationFailed, "Authorization failed"},
+    {Vreen::Client::ErrorToManyRequests, "Too many requests"},
+    {Vreen::Client::ErrorPermissionDenied, "Permission denied"},
+    {Vreen::Client::ErrorCaptchaNeeded, "Captcha needed"},
+    {Vreen::Client::ErrorMissingOrInvalidParameter, "Invalid parameters, internal error"},
+    {Vreen::Client::ErrorNetworkReply, "Network error"}
+};
+const QMap<Vreen::Client::Error, QString> ERROR_TEXTS(E_T);
 
 const QString ICON_PATH = ":/icons/VKMusicSyncIcon.ico";
 

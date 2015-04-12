@@ -99,10 +99,21 @@ void MainWindow::saveSettings()
     m_settings->endGroup();
 }
 
+void MainWindow::clientError(Vreen::Client::Error err)
+{
+    if (err != Vreen::Client::ErrorAuthorizationFailed)
+    {
+        QMessageBox::critical(this, ERROR_TITLE, ERROR_TEXTS[err], QMessageBox::Ok);
+    }
+}
+
 void MainWindow::login()
 {
     m_client->connectToHost();
-    refreshAudioList();
+    if (m_client->isOnline())
+    {
+        refreshAudioList();
+    }
 }
 
 void MainWindow::logout()
@@ -493,6 +504,7 @@ void MainWindow::createConnections()
 
     connect(m_ui->folderToolButton, &QToolButton::clicked, this, &MainWindow::chooseFolder);
     connect(m_ui->loginButton, &QPushButton::clicked, this, &MainWindow::login);
+    connect(m_client, &Vreen::Client::error, this, &MainWindow::clientError);
 
     connect(m_networkManager, &QNetworkAccessManager::finished, this, &MainWindow::fileDownloaded);
 
@@ -515,6 +527,7 @@ void MainWindow::timedSync()
 void MainWindow::createTrayIcon()
 {
     m_trayIcon->setIcon(m_icon);
+    m_trayIcon->setToolTip(APP_NAME);
     connect(m_trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::showFromTray);
 
     QAction *showAction = new QAction(TRAY_SHOW_ACTION_TEXT, m_trayIcon);

@@ -80,6 +80,7 @@ public slots:
     void syncAudio();
     void removeOldAudio();
     void setAutoSyncMode(bool mode);
+    void clientError(Vreen::Client::Error err);
 private slots:
     void fileDownloaded(QNetworkReply *);
     void on_actionExit_triggered();
