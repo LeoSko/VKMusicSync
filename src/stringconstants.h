@@ -50,7 +50,7 @@ const QString FILE_UNREMOVABLE_DIALOG_TITLE = "Error removing files";
 const QString FILE_UNREMOVABLE_DIALOG_TEXT_PATTERN = "The following files could not be removed: %1";
 
 const QString ABOUT_TITLE = "About VKMusicSync";
-const QString ABOUT_TEXT = "This program was created by\nLeonid Skorospelov (leosko94@gmail.com).\nFeel free to contact me in order to improve this software.";
+const QString ABOUT_TEXT = "This program was created by\nLeonid Skorospelov (<a href='mailto:leosko94@gmail.com?Subject=VKMusicSync'>leosko94@gmail.com</a>).\nFeel free to contact me in order to improve this software.";
 
 const QString TRAY_SHOW_ACTION_TEXT = "Show/raise window";
 const QString TRAY_EXIT_ACTION_TEXT = "Exit";
@@ -76,6 +76,12 @@ const std::map<Vreen::Client::Error, QString> E_T
     {Vreen::Client::ErrorNetworkReply, "Network error"}
 };
 const QMap<Vreen::Client::Error, QString> ERROR_TEXTS(E_T);
+const QString ERROR_FOLDER_TITLE = "Unaccessible folder";
+const QString ERROR_FOLDER_TEXT = "Check selected folder for existing and ability to read/write to.";
+const QString ERROR_WRITING_FILE_TITLE = "Error writing file to disk";
+const QString ERROR_WRITING_FILE_TEXT = "The error occured while writing file to %1. Check if\n1. You have enough space on your disk.\n2. You are able to write to selected directory.\n3. The disk is still available from your computer.";
+const QString ERROR_REMOVING_HALFED_FILE_TITLE = "Error removing unsaved file";
+const QString ERROR_REMOVING_HALFED_FILE_TEXT = "The error occured while removing the file that was not fully saved to disk.";
 
 const QString ICON_PATH = ":/icons/VKMusicSyncIcon.ico";
 

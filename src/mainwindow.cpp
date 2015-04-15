@@ -51,6 +51,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     createConnections();
     createTrayIcon();
+    refreshUiBlock(false);
 }
 
 MainWindow::~MainWindow()
@@ -74,7 +75,8 @@ void MainWindow::loadSettings()
     m_settings->beginGroup("ui");
     m_ui->rememberMeCheckBox->setChecked(m_settings->value("rememberLoggedInState").toBool());
     this->restoreGeometry(m_settings->value("geometry").toByteArray());
-    m_ui->autoSyncCheckBox->setChecked(m_settings->value("autoSyncEnabled").toBool());
+    // TODO (LeoSko) Think about how to implement autoSync from loading settings
+    //m_ui->autoSyncCheckBox->setChecked(m_settings->value("autoSyncEnabled").toBool());
     m_settings->endGroup();
 
     m_settings->beginGroup("internal");
@@ -354,21 +356,34 @@ void MainWindow::refreshUiBlock(bool autoChecked)
     m_ui->folderToolButton->setEnabled(res);
     m_ui->refreshAlbumsButton->setEnabled(res);
     m_ui->refreshButton->setEnabled(res);
-    //m_ui->removeToolButton->setEnabled(res);
+    m_ui->removeToolButton->setEnabled(res);
     m_ui->countOfTracksSpinBox->setEnabled(res);
     m_ui->countOfTrackslbl->setEnabled(res);
+    m_ui->folderLineEdit->setEnabled(res);
+    m_ui->folderToolButton->setEnabled(res);
+    m_ui->folderLbl->setEnabled(res);
+    m_ui->progressBarFile->setEnabled(res);
+    m_ui->progressBarAll->setEnabled(res);
 
     m_ui->englishOnlyCheckBox->setEnabled(res && (m_albums->value(m_ui->albumsComboBox->currentText()) < 0));
 }
 
 void MainWindow::syncAudio()
 {
-    createDownloadQueue();
-    m_ui->progressBarAll->setValue(0);
-    m_ui->progressBarFile->setValue(0);
-    m_ui->progressBarAll->setMaximum(m_downloadList->size());
-    refreshUiBlock(m_ui->autoSyncCheckBox->isChecked());
-    downloadNext();
+    QDir dir(m_ui->folderLineEdit->text());
+    if (dir.exists() && dir.isReadable())
+    {
+        createDownloadQueue();
+        m_ui->progressBarAll->setValue(0);
+        m_ui->progressBarFile->setValue(0);
+        m_ui->progressBarAll->setMaximum(m_downloadList->size());
+        refreshUiBlock(m_ui->autoSyncCheckBox->isChecked());
+        downloadNext();
+    }
+    else
+    {
+        QMessageBox::critical(this, ERROR_FOLDER_TITLE, ERROR_FOLDER_TEXT, QMessageBox::Ok);
+    }
 }
 
 void MainWindow::downloadNext()
@@ -395,10 +410,21 @@ void MainWindow::downloadNext()
 void MainWindow::fileDownloaded(QNetworkReply *r)
 {
     QPair<QUrl, QPair<QString, int>> last = m_downloadList->dequeue();
+
     QFile *file = new QFile(last.second.first);
     if (file->open(QFile::Append))
     {
-        file->write(r->readAll());
+        if (file->write(r->readAll()) == -1) // error of writing
+        {
+            QMessageBox::critical(this, ERROR_WRITING_FILE_TITLE, ERROR_WRITING_FILE_TEXT.arg(last.second.first), QMessageBox::Ok);
+            if (!file->remove())
+            {
+                QMessageBox::critical(this, ERROR_REMOVING_HALFED_FILE_TITLE, ERROR_REMOVING_HALFED_FILE_TEXT, QMessageBox::Ok);
+                m_ui->audioList->item(last.second.second)->setBackgroundColor(Qt::red);
+                m_downloadList->clear();
+                return;
+            }
+        }
         file->flush();
         file->close();
     }
@@ -561,6 +587,11 @@ void MainWindow::showFromTray(QSystemTrayIcon::ActivationReason reason)
 
 void MainWindow::setAutoSyncMode(bool mode)
 {
+    if (!QDir(m_ui->folderLineEdit->text()).isReadable())
+    {
+        QMessageBox::critical(this, ERROR_FOLDER_TITLE, ERROR_FOLDER_TEXT, QMessageBox::Ok);
+        return;
+    }
     refreshUiBlock(mode);
     if (mode)
     {
@@ -584,5 +615,10 @@ void MainWindow::on_actionSync_triggered()
 
 void MainWindow::on_actionAbout_triggered()
 {
-    QMessageBox::about(this, ABOUT_TITLE, ABOUT_TEXT);
+    QMessageBox box;
+    box.setWindowTitle(ABOUT_TITLE);
+    box.setWindowIcon(this->windowIcon());
+    box.setTextFormat(Qt::RichText);
+    box.setText(ABOUT_TEXT);
+    box.exec();
 }
