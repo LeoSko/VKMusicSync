@@ -38,6 +38,7 @@ MainWindow::MainWindow(QWidget *parent) :
     m_ui->setupUi(this);
     this->setWindowIcon(m_icon);
     m_ui->folderLineEdit->setText(QDir::rootPath());
+    m_ui->countOfTracksSpinBox->setValue(30);
     m_ui->countOfTracksSpinBox->setMaximum(MAX_AUDIO_GET_COUNT);
     this->setWindowTitle(APP_NAME + " " + APP_VERSION);
 
