@@ -4,7 +4,7 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 TARGET = VKMusicSync
 TEMPLATE = app
-
+CONFIG += c++11
 
 SOURCES += main.cpp\
         mainwindow.cpp \
@@ -25,7 +25,7 @@ else:unix: LIBS += -L$$PWD/3rdparty/lib/ -lvreen
 INCLUDEPATH += $$PWD/3rdparty
 DEPENDPATH += $$PWD/3rdparty
 
-unix|win32: LIBS += -L$$PWD/3rdparty/lib/ -lvreenoauth
+LIBS += -L$$PWD/3rdparty/lib/ -lvreenoauth
 
 RC_ICONS = $$PWD/icons/VKMusicSyncIcon.ico
 

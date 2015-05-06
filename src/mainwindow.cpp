@@ -5,6 +5,7 @@
 #include <vreen/connection.h>
 #include <vreen/auth/oauthconnection.h>
 #include <vreen/roster.h>
+#include <vreen/longpoll.h>
 #include <QDebug>
 #include <QThread>
 #include <QSettings>
@@ -21,8 +22,8 @@
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     m_ui(new Ui::MainWindow),
-    m_client(new Vreen::Client(this)),
     m_auth(new Vreen::OAuthConnection(APPLICATION_VK_ID, this)),
+    m_client(new Vreen::Client(this)),
     m_settings(new QSettings(ORG_NAME, APP_NAME, this)),
     m_audioList(new QList<Audio>()),
     m_albums(new QMap<QString, int>()),
@@ -48,6 +49,7 @@ MainWindow::MainWindow(QWidget *parent) :
     m_auth->setConnectionOption(Vreen::Connection::KeepAuthData, true);
     m_auth->setScopes(Vreen::OAuthConnection::Audio);
     m_client->setConnection(m_auth);
+    m_client->setTrackMessages(false);
 
     createConnections();
     createTrayIcon();

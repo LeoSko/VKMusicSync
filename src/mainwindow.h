@@ -47,7 +47,7 @@ private:
     QSettings *m_settings;
     QList<Audio> *m_audioList;
     QMap<QString, int> *m_albums;
-    QQueue<QPair<QUrl, QPair<QString, int>>> *m_downloadList;
+    QQueue<QPair<QUrl, QPair<QString, int> > > *m_downloadList;
     QNetworkAccessManager *m_networkManager;
     QFileInfoList *m_oldFiles;
     QTimer *m_syncTimer;
